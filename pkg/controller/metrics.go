@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/bitnami-labs/sealed-secrets/pkg/apis/sealedsecrets/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,6 +19,7 @@ const (
 	labelName      = "name"
 	labelCondition = "condition"
 	labelInstance  = "ss_app_kubernetes_io_instance"
+	labelImmutable = "immutable"
 )
 
 var conditionStatusToGaugeValue = map[v1.ConditionStatus]float64{
@@ -54,7 +56,7 @@ var (
 			Name:      "condition_info",
 			Help:      "Current SealedSecret condition status. Values are -1 (false), 0 (unknown or absent), 1 (true)",
 		},
-		[]string{labelNamespace, labelName, labelCondition, labelInstance},
+		[]string{labelNamespace, labelName, labelCondition, labelInstance, labelImmutable},
 	)
 
 	httpRequestsTotal = prometheus.NewCounterVec(
@@ -107,6 +109,7 @@ func ObserveCondition(ssecret *v1alpha1.SealedSecret) {
 			labelName:      ssecret.Name,
 			labelCondition: string(condition.Type),
 			labelInstance:  ssecret.Labels["app.kubernetes.io/instance"],
+			labelImmutable: strconv.FormatBool(ssecret.Spec.Template.Immutable),
 		}).Set(conditionStatusToGaugeValue[condition.Status])
 	}
 }
@@ -117,7 +120,13 @@ func UnregisterCondition(ssecret *v1alpha1.SealedSecret) {
 		return
 	}
 	for _, condition := range ssecret.Status.Conditions {
-		conditionInfo.MetricVec.DeleteLabelValues(ssecret.Namespace, ssecret.Name, string(condition.Type), labelInstance)
+		conditionInfo.MetricVec.DeleteLabelValues(
+			ssecret.Namespace,
+			ssecret.Name,
+			string(condition.Type),
+			ssecret.Labels["app.kubernetes.io/instance"],
+			strconv.FormatBool(ssecret.Spec.Template.Immutable),
+		)
 	}
 }
 
