@@ -103,13 +103,17 @@ func ObserveCondition(ssecret *v1alpha1.SealedSecret) {
 	if ssecret.Status == nil {
 		return
 	}
+	var immutableValue = nil
+	if ssecret.Spec.Template.Immutable != nil {
+		immutableValue = strconv.FormatBool(ssecret.Spec.Template.Immutable)
+        }
 	for _, condition := range ssecret.Status.Conditions {
 		conditionInfo.With(prometheus.Labels{
 			labelNamespace: ssecret.Namespace,
 			labelName:      ssecret.Name,
 			labelCondition: string(condition.Type),
 			labelInstance:  ssecret.Labels["app.kubernetes.io/instance"],
-			labelImmutable: strconv.FormatBool(ssecret.Spec.Template.Immutable),
+			immutableValue,
 		}).Set(conditionStatusToGaugeValue[condition.Status])
 	}
 }
@@ -119,13 +123,17 @@ func UnregisterCondition(ssecret *v1alpha1.SealedSecret) {
 	if ssecret.Status == nil {
 		return
 	}
+	var immutableValue = nil
+	if ssecret.Spec.Template.Immutable != nil {
+		immutableValue = strconv.FormatBool(ssecret.Spec.Template.Immutable)
+        }
 	for _, condition := range ssecret.Status.Conditions {
 		conditionInfo.MetricVec.DeleteLabelValues(
 			ssecret.Namespace,
 			ssecret.Name,
 			string(condition.Type),
 			ssecret.Labels["app.kubernetes.io/instance"],
-			strconv.FormatBool(ssecret.Spec.Template.Immutable),
+			immutableValue,
 		)
 	}
 }
